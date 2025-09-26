@@ -1,0 +1,21 @@
+dispute_id,suggested_action,justification
+D001,Auto-refund,Confirmed duplicate transaction; refund can be processed automatically.
+D002,Auto-refund,Transaction shows FAILED status; funds not captured.
+D003,Auto-refund,Transaction shows FAILED status; funds not captured.
+D004,Mark as potential fraud,Customer indicated unauthorized or suspicious activity.
+D005,Escalate to bank,Refund initiated but not settled; requires bank follow-up.
+D006,Auto-refund,Confirmed duplicate transaction; refund can be processed automatically.
+D007,Auto-refund,Transaction shows FAILED status; funds not captured.
+D008,Manual review,No rule-based resolution possible; agent should investigate.
+D009,Mark as potential fraud,Customer indicated unauthorized or suspicious activity.
+D010,Auto-refund,Transaction shows FAILED status; funds not captured.
+D011,Auto-refund,Confirmed duplicate transaction; refund can be processed automatically.
+D012,Escalate to bank,Refund initiated but not settled; requires bank follow-up.
+D013,Auto-refund,Confirmed duplicate transaction; refund can be processed automatically.
+D014,Auto-refund,Transaction shows PROCESSED status; funds not captured.
+D015,Auto-refund,Transaction shows FAILED status; funds not captured.
+D016,Mark as potential fraud,Customer indicated unauthorized or suspicious activity.
+D017,Escalate to bank,Refund initiated but not settled; requires bank follow-up.
+D018,Auto-refund,Confirmed duplicate transaction; refund can be processed automatically.
+D019,Auto-refund,Transaction shows FAILED status; funds not captured.
+D020,Auto-refund,Confirmed duplicate transaction; refund can be processed automatically.

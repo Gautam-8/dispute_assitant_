@@ -1,0 +1,27 @@
+# Core Framework
+streamlit>=1.28.0
+fastapi>=0.104.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# Machine Learning & AI
+langchain>=0.0.350
+langchain-openai>=0.0.5
+langchain-community>=0.0.10
+openai>=1.3.0
+
+# Visualization
+plotly>=5.17.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Environment Management
+python-dotenv>=1.0.0
+
+# Utilities
+pathlib2>=2.3.0

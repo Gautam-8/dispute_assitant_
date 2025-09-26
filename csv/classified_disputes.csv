@@ -1,0 +1,21 @@
+dispute_id,predicted_category,confidence,explanation
+D001,DUPLICATE_CHARGE,0.6,LLM classification
+D002,FAILED_TRANSACTION,0.9,Matched hard-coded rules
+D003,FAILED_TRANSACTION,0.9,Matched hard-coded rules
+D004,FRAUD,0.9,Matched hard-coded rules
+D005,REFUND_PENDING,0.9,Matched hard-coded rules
+D006,DUPLICATE_CHARGE,0.9,Matched hard-coded rules
+D007,FAILED_TRANSACTION,0.9,Matched hard-coded rules
+D008,OTHERS,0.6,LLM classification
+D009,FRAUD,0.6,LLM classification
+D010,FAILED_TRANSACTION,0.9,Matched hard-coded rules
+D011,DUPLICATE_CHARGE,0.6,LLM classification
+D012,REFUND_PENDING,0.6,LLM classification
+D013,DUPLICATE_CHARGE,0.6,LLM classification
+D014,FAILED_TRANSACTION,0.6,LLM classification
+D015,FAILED_TRANSACTION,0.9,Matched hard-coded rules
+D016,FRAUD,0.6,LLM classification
+D017,REFUND_PENDING,0.9,Matched hard-coded rules
+D018,DUPLICATE_CHARGE,0.9,Matched hard-coded rules
+D019,FAILED_TRANSACTION,0.9,Matched hard-coded rules
+D020,DUPLICATE_CHARGE,0.6,LLM classification
