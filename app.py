@@ -613,14 +613,24 @@ elif page == "🔍 Task 3: Query Interface":
     )
     
     # Query method selection
+    st.markdown("**Choose Query Method:**")
     col1, col2 = st.columns(2)
     
     with col1:
         query_method = st.radio(
             "Query Method:",
             ["🐼 Pandas (Faster)", "🗄️ SQL Database"],
-            help="Pandas queries CSV files directly, SQL uses database"
+            help="Pandas: Direct CSV analysis (faster). SQL: Database queries (more robust)"
         )
+    
+    with col2:
+        if query_method == "🐼 Pandas (Faster)":
+            st.info("🐼 **Pandas**: Fast, direct analysis. Good for simple queries.")
+        else:
+            st.info("🗄️ **SQL**: Database queries. Better for complex analysis.")
+    
+    # Run query button
+    col1, col2 = st.columns([3, 1])
     
     with col2:
         if st.button("🔍 Run Query", type="primary", disabled=not query.strip()):
@@ -638,17 +648,42 @@ elif page == "🔍 Task 3: Query Interface":
                             
                             # Show result
                             if result['result'] is not None:
-                                st.write(result['result'])
+                                # Check if result is effectively empty
+                                try:
+                                    import pandas as pd
+                                    if isinstance(result['result'], pd.DataFrame) and result['result'].empty:
+                                        st.info("Query executed but returned empty results.")
+                                        st.info("💡 **Tip**: No data found. Try switching to 'SQL Database' method or rephrase your question.")
+                                    elif isinstance(result['result'], (list, tuple)) and len(result['result']) == 0:
+                                        st.info("Query executed but returned empty results.")
+                                        st.info("💡 **Tip**: No data found. Try switching to 'SQL Database' method or rephrase your question.")
+                                    else:
+                                        st.write(result['result'])
+                                except:
+                                    # Fallback: just show the result
+                                    st.write(result['result'])
                             else:
                                 st.info("Query executed but no result returned.")
+                                st.info("💡 **Tip**: If you expected results, try switching to 'SQL Database' method for more comprehensive search.")
                         
                         else:  # SQL method
                             result = query_db(query)
                             st.subheader("📊 Query Result")
-                            st.write(result)
+                            
+                            # Check if SQL result is empty or indicates no data
+                            if result and isinstance(result, str) and any(phrase in result.lower() for phrase in ["no data", "empty", "no results", "0 rows"]):
+                                st.info("SQL query executed but found no matching data.")
+                                st.info("💡 **Tip**: Try switching to 'Pandas (Faster)' method or rephrase your question with different keywords.")
+                            else:
+                                st.write(result)
                             
                     except Exception as e:
-                        st.error(f"❌ Error processing query: {e}")
+                        if query_method == "🐼 Pandas (Faster)":
+                            st.error(f"❌ Pandas query failed: {e}")
+                            st.info("💡 **Tip**: Try switching to 'SQL Database' method for complex queries or if the pandas query doesn't work as expected.")
+                        else:
+                            st.error(f"❌ SQL query failed: {e}")
+                            st.info("💡 **Tip**: Try switching to 'Pandas (Faster)' method or rephrase your question.")
     
     # Quick stats section
     st.markdown("---")
