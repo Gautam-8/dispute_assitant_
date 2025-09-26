@@ -630,60 +630,84 @@ elif page == "🔍 Task 3: Query Interface":
             st.info("🗄️ **SQL**: Database queries. Better for complex analysis.")
     
     # Run query button
-    col1, col2 = st.columns([3, 1])
-    
-    with col2:
-        if st.button("🔍 Run Query", type="primary", disabled=not query.strip()):
-            if query.strip():
-                with st.spinner("Processing your question..."):
-                    try:
-                        if query_method == "🐼 Pandas (Faster)":
-                            # Use dynamic query processor that works with session state
-                            result = dynamic_query_processor.query_dynamic(query)
-                            st.subheader("📊 Query Result")
-                            
-                            # Show generated code
-                            with st.expander("🔍 Generated Code"):
-                                st.code(result['code'], language='python')
-                            
-                            # Show result
-                            if result['result'] is not None:
-                                # Check if result is effectively empty
-                                try:
-                                    import pandas as pd
-                                    if isinstance(result['result'], pd.DataFrame) and result['result'].empty:
-                                        st.info("Query executed but returned empty results.")
-                                        st.info("💡 **Tip**: No data found. Try switching to 'SQL Database' method or rephrase your question.")
-                                    elif isinstance(result['result'], (list, tuple)) and len(result['result']) == 0:
-                                        st.info("Query executed but returned empty results.")
-                                        st.info("💡 **Tip**: No data found. Try switching to 'SQL Database' method or rephrase your question.")
-                                    else:
-                                        st.write(result['result'])
-                                except:
-                                    # Fallback: just show the result
-                                    st.write(result['result'])
-                            else:
-                                st.info("Query executed but no result returned.")
-                                st.info("💡 **Tip**: If you expected results, try switching to 'SQL Database' method for more comprehensive search.")
+    if st.button("🔍 Run Query", type="primary", disabled=not query.strip()):
+        if query.strip():
+            with st.spinner("Processing your question..."):
+                try:
+                    if query_method == "🐼 Pandas (Faster)":
+                        # Use dynamic query processor that works with session state
+                        result = dynamic_query_processor.query_dynamic(query)
+                        st.session_state.query_result = result
+                        st.session_state.query_method = query_method
+                        st.rerun()
+                    
+                    else:  # SQL method
+                        result = query_db(query)
+                        st.session_state.query_result = {"result": result, "code": "SQL Query"}
+                        st.session_state.query_method = query_method
+                        st.rerun()
                         
-                        else:  # SQL method
-                            result = query_db(query)
-                            st.subheader("📊 Query Result")
-                            
-                            # Check if SQL result is empty or indicates no data
-                            if result and isinstance(result, str) and any(phrase in result.lower() for phrase in ["no data", "empty", "no results", "0 rows"]):
-                                st.info("SQL query executed but found no matching data.")
-                                st.info("💡 **Tip**: Try switching to 'Pandas (Faster)' method or rephrase your question with different keywords.")
-                            else:
-                                st.write(result)
-                            
-                    except Exception as e:
-                        if query_method == "🐼 Pandas (Faster)":
-                            st.error(f"❌ Pandas query failed: {e}")
-                            st.info("💡 **Tip**: Try switching to 'SQL Database' method for complex queries or if the pandas query doesn't work as expected.")
+                except Exception as e:
+                    if query_method == "🐼 Pandas (Faster)":
+                        st.error(f"❌ Pandas query failed: {e}")
+                        st.info("💡 **Tip**: Try switching to 'SQL Database' method for complex queries or if the pandas query doesn't work as expected.")
+                    else:
+                        st.error(f"❌ SQL query failed: {e}")
+                        st.info("💡 **Tip**: Try switching to 'Pandas (Faster)' method or rephrase your question.")
+    
+    # Display query results in full width below the query interface
+    st.markdown("---")
+    
+    if 'query_result' in st.session_state and st.session_state.query_result:
+        st.subheader("📊 Query Result")
+        
+        result = st.session_state.query_result
+        query_method_used = st.session_state.get('query_method', 'Unknown')
+        
+        # Show generated code for pandas queries
+        if query_method_used == "🐼 Pandas (Faster)" and 'code' in result:
+            with st.expander("🔍 Generated Code"):
+                st.code(result['code'], language='python')
+        
+        # Show result with better formatting in full width
+        if result.get('result') is not None:
+            # Check if result is effectively empty
+            try:
+                import pandas as pd
+                if isinstance(result['result'], pd.DataFrame) and result['result'].empty:
+                    st.info("Query executed but returned empty results.")
+                    st.info("💡 **Tip**: No data found. Try switching to 'SQL Database' method or rephrase your question.")
+                elif isinstance(result['result'], (list, tuple)) and len(result['result']) == 0:
+                    st.info("Query executed but returned empty results.")
+                    st.info("💡 **Tip**: No data found. Try switching to 'SQL Database' method or rephrase your question.")
+                else:
+                    # Better formatting for different result types - FULL WIDTH
+                    if isinstance(result['result'], pd.DataFrame):
+                        st.dataframe(result['result'], use_container_width=True, height=400)
+                    elif isinstance(result['result'], (int, float)):
+                        col1, col2, col3 = st.columns([1, 2, 1])
+                        with col2:
+                            st.metric("Result", result['result'])
+                    elif isinstance(result['result'], str):
+                        if len(result['result']) > 200:
+                            # Long text results in expandable section
+                            with st.expander("📄 Full Result", expanded=True):
+                                st.markdown(result['result'])
                         else:
-                            st.error(f"❌ SQL query failed: {e}")
-                            st.info("💡 **Tip**: Try switching to 'Pandas (Faster)' method or rephrase your question.")
+                            st.success(f"**Result:** {result['result']}")
+                    else:
+                        st.write(result['result'])
+            except Exception as e:
+                # Fallback: just show the result
+                st.write(result['result'])
+        else:
+            st.info("Query executed but no result returned.")
+            if query_method_used == "🐼 Pandas (Faster)":
+                st.info("💡 **Tip**: If you expected results, try switching to 'SQL Database' method for more comprehensive search.")
+            else:
+                st.info("💡 **Tip**: Try switching to 'Pandas (Faster)' method or rephrase your question.")
+    else:
+        st.info("💡 Run a query above to see results here")
     
     # Quick stats section
     st.markdown("---")
