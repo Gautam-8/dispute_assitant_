@@ -36,7 +36,7 @@ CSV_DIR = BASE_DIR / "csv"
 
 # ---------- Dynamic Data Loading ----------
 def load_current_dataset():
-    """Load current active dataset from database or fallback to CSV files"""
+    """Load current active dataset from database only"""
     current_dataset = dataset_manager.get_current_dataset()
     
     if current_dataset:
@@ -51,18 +51,8 @@ def load_current_dataset():
         
         return disputes_df, transactions_df, current_dataset
     else:
-        # Fallback to CSV files if no dataset in database
-        try:
-            disputes = pd.read_csv(CSV_DIR / "disputes.csv")
-            transactions = pd.read_csv(CSV_DIR / "transactions.csv")
-            
-            # Convert timestamps
-            disputes['created_at'] = pd.to_datetime(disputes['created_at'])
-            transactions['timestamp'] = pd.to_datetime(transactions['timestamp'])
-            
-            return disputes, transactions, None
-        except FileNotFoundError:
-            return pd.DataFrame(), pd.DataFrame(), None
+        # Return empty DataFrames if no dataset uploaded
+        return pd.DataFrame(), pd.DataFrame(), None
 
 def merge_data(disputes_df, transactions_df):
     """Merge disputes and transactions data"""
@@ -116,10 +106,7 @@ if current_dataset_info:
     st.sidebar.caption(f"📊 {current_dataset_info['disputes_count']} disputes, {current_dataset_info['transactions_count']} transactions")
     st.sidebar.caption(f"📅 {current_dataset_info['upload_time'].strftime('%Y-%m-%d %H:%M')}")
 else:
-    if not disputes.empty:
-        st.sidebar.info("📁 Using CSV files")
-    else:
-        st.sidebar.warning("⚠️ No data loaded")
+    st.sidebar.warning("⚠️ No data loaded - Please upload a dataset")
 
 # Dataset history
 dataset_history = dataset_manager.get_dataset_history()
@@ -141,17 +128,25 @@ page = st.sidebar.selectbox(
 # ---------- Helper Functions ----------
 def create_dispute_metrics():
     """Create key metrics for dashboard"""
+    if disputes.empty:
+        return 0, 0, 0, pd.Series(dtype=int)
+    
     total_disputes = len(disputes)
-    total_amount = disputes['amount'].sum()
-    avg_amount = disputes['amount'].mean()
+    total_amount = disputes['amount'].sum() if 'amount' in disputes.columns else 0
+    avg_amount = disputes['amount'].mean() if 'amount' in disputes.columns else 0
     
     # Status breakdown from transactions
-    status_counts = merged_data['status'].value_counts()
+    if merged_data.empty:
+        status_counts = pd.Series(dtype=int)
+    else:
+        status_counts = merged_data['status'].value_counts()
     
     return total_disputes, total_amount, avg_amount, status_counts
 
 def detect_duplicates():
     """Detect duplicate transactions"""
+    if transactions.empty:
+        return pd.DataFrame()
     duplicate_txns = transactions[transactions['txn_id'].str.contains('_DUP', na=False)]
     return duplicate_txns
 
@@ -163,68 +158,73 @@ if page == "📊 Dashboard":
     # Key Metrics
     total_disputes, total_amount, avg_amount, status_counts = create_dispute_metrics()
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         st.metric("Total Disputes", total_disputes)
     
     with col2:
-        st.metric("Total Amount", f"₹{total_amount:,.0f}")
-    
-    with col3:
-        st.metric("Average Amount", f"₹{avg_amount:.0f}")
-    
-    with col4:
         duplicate_count = len(detect_duplicates())
         st.metric("Duplicate Transactions", duplicate_count)
+    
+    with col3:
+        if not transactions.empty:
+            failed_txns = len(transactions[transactions['status'] == 'FAILED'])
+            st.metric("Failed Transactions", failed_txns)
+        else:
+            st.metric("Failed Transactions", 0)
     
     st.markdown("---")
     
     # Charts Row 1
-    col1, col2 = st.columns(2)
+    if not disputes.empty and not status_counts.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Transaction Status Distribution")
+            fig_status = px.pie(
+                values=status_counts.values,
+                names=status_counts.index,
+                title="Transaction Status Breakdown"
+            )
+            st.plotly_chart(fig_status, use_container_width=True, key="status_chart")
     
-    with col1:
-        st.subheader("Transaction Status Distribution")
-        fig_status = px.pie(
-            values=status_counts.values,
-            names=status_counts.index,
-            title="Transaction Status Breakdown"
-        )
-        st.plotly_chart(fig_status, use_container_width=True)
-    
-    with col2:
-        st.subheader("Disputes by Channel")
-        channel_counts = disputes['channel'].value_counts()
-        fig_channel = px.bar(
-            x=channel_counts.index,
-            y=channel_counts.values,
-            title="Disputes by Channel",
-            labels={'x': 'Channel', 'y': 'Count'}
-        )
-        st.plotly_chart(fig_channel, use_container_width=True)
-    
-    # Charts Row 2
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Payment Type Distribution")
-        txn_type_counts = disputes['txn_type'].value_counts()
-        fig_txn_type = px.pie(
-            values=txn_type_counts.values,
-            names=txn_type_counts.index,
-            title="Payment Types"
-        )
-        st.plotly_chart(fig_txn_type, use_container_width=True)
-    
-    with col2:
-        st.subheader("Amount Distribution")
-        fig_amount = px.histogram(
-            disputes,
-            x='amount',
-            nbins=20,
-            title="Dispute Amount Distribution"
-        )
-        st.plotly_chart(fig_amount, use_container_width=True)
+        with col2:
+            st.subheader("Disputes by Channel")
+            channel_counts = disputes['channel'].value_counts()
+            fig_channel = px.bar(
+                x=channel_counts.index,
+                y=channel_counts.values,
+                title="Disputes by Channel",
+                labels={'x': 'Channel', 'y': 'Count'}
+            )
+            st.plotly_chart(fig_channel, use_container_width=True, key="dashboard_channel_chart")
+        
+        # Charts Row 2
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Payment Type Distribution")
+            txn_type_counts = disputes['txn_type'].value_counts()
+            fig_txn_type = px.pie(
+                values=txn_type_counts.values,
+                names=txn_type_counts.index,
+                title="Payment Types"
+            )
+            st.plotly_chart(fig_txn_type, use_container_width=True, key="dashboard_txn_type_chart")
+        
+        with col2:
+            st.subheader("Disputes by Channel")
+            channel_counts = disputes['channel'].value_counts()
+            fig_channel = px.bar(
+                x=channel_counts.index,
+                y=channel_counts.values,
+                title="Disputes by Channel",
+                labels={'x': 'Channel', 'y': 'Count'}
+            )
+            st.plotly_chart(fig_channel, use_container_width=True, key="channel_chart")
+    else:
+        st.info("📊 No data available. Please upload a dataset to see dashboard analytics.")
     
     # Recent Disputes Table
     st.subheader("Recent Disputes")
@@ -367,7 +367,7 @@ elif page == "📁 Upload Data":
 # ---------- TASK 1 PAGE ----------
 elif page == "🎯 Task 1: Classification":
     st.title("🎯 Task 1: Dispute Classification")
-    st.markdown("Classify disputes into categories using rule-based and ML models.")
+    st.markdown("Classify disputes into categories using.")
     st.markdown("---")
     
     col1, col2 = st.columns([2, 1])
@@ -425,7 +425,7 @@ elif page == "🎯 Task 1: Classification":
                 color=category_counts.values,
                 color_continuous_scale='Blues'
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="classification_bar_chart")
             
             # Confidence distribution
             fig_conf = px.histogram(
@@ -434,7 +434,7 @@ elif page == "🎯 Task 1: Classification":
                 title="Classification Confidence Distribution",
                 nbins=10
             )
-            st.plotly_chart(fig_conf, use_container_width=True)
+            st.plotly_chart(fig_conf, use_container_width=True, key="confidence_histogram")
             
         else:
             st.info("Run classification to see results here.")
@@ -536,7 +536,7 @@ elif page == "💡 Task 2: Resolutions":
                 names=action_counts.index,
                 title="Suggested Actions Distribution"
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="resolution_pie_chart")
             
         else:
             st.info("Generate resolutions to see analysis here.")
@@ -594,7 +594,7 @@ elif page == "🔍 Task 3: Query Interface":
         "How many duplicate charges today?",
         "List unresolved fraud disputes",
         "Break down disputes by type",
-        "What's the total amount for failed transactions?",
+        "What's the total count for failed transactions?",
         "Show me all disputes from mobile channel",
         "Count disputes by customer"
     ]
@@ -703,7 +703,7 @@ elif page == "📈 Analytics & Trends":
             xaxis_title="Date",
             yaxis_title="Number of Disputes"
         )
-        st.plotly_chart(fig_trend, use_container_width=True)
+        st.plotly_chart(fig_trend, use_container_width=True, key="trend_line_chart")
     else:
         st.info("📈 No data available for trends analysis. Please upload a dataset first.")
     
@@ -730,7 +730,7 @@ elif page == "📈 Analytics & Trends":
             title="Dispute Categories Over Time",
             markers=True
         )
-        st.plotly_chart(fig_cat_trend, use_container_width=True)
+        st.plotly_chart(fig_cat_trend, use_container_width=True, key="category_trend_chart")
         
         # Heatmap of categories by day of week
         classified_with_time['day_of_week'] = pd.to_datetime(classified_with_time['created_at']).dt.day_name()
@@ -742,34 +742,36 @@ elif page == "📈 Analytics & Trends":
             labels=dict(x="Day of Week", y="Category", color="Count"),
             aspect="auto"
         )
-        st.plotly_chart(fig_heatmap, use_container_width=True)
+        st.plotly_chart(fig_heatmap, use_container_width=True, key="heatmap_chart")
     
-    # Amount analysis
-    st.subheader("💰 Amount Analysis")
+    # Transaction Type analysis  
+    st.subheader("💳 Transaction Type Analysis")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Box plot by transaction type
-        fig_amount_box = px.box(
-            disputes,
-            x='txn_type',
-            y='amount',
-            title="Amount Distribution by Transaction Type"
-        )
-        st.plotly_chart(fig_amount_box, use_container_width=True)
-    
-    with col2:
-        # Scatter plot: amount vs time
-        fig_amount_time = px.scatter(
-            disputes,
-            x='created_at',
-            y='amount',
-            color='channel',
-            title="Dispute Amount Over Time by Channel",
-            hover_data=['dispute_id', 'txn_type']
-        )
-        st.plotly_chart(fig_amount_time, use_container_width=True)
+    if not disputes.empty:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Transaction type distribution
+            txn_type_counts = disputes['txn_type'].value_counts()
+            fig_txn_type = px.bar(
+                x=txn_type_counts.index,
+                y=txn_type_counts.values,
+                title="Disputes by Transaction Type",
+                labels={'x': 'Transaction Type', 'y': 'Count'}
+            )
+            st.plotly_chart(fig_txn_type, use_container_width=True, key="analytics_txn_type_chart")
+        
+        with col2:
+            # Channel distribution over time
+            fig_channel_time = px.scatter(
+                disputes,
+                x='created_at',
+                y='txn_type',
+                color='channel',
+                title="Transaction Types Over Time by Channel",
+                hover_data=['dispute_id', 'customer_id']
+            )
+            st.plotly_chart(fig_channel_time, use_container_width=True, key="channel_time_chart")
     
     # Duplicate transaction analysis
     st.subheader("🔄 Duplicate Transaction Analysis")
@@ -779,14 +781,14 @@ elif page == "📈 Analytics & Trends":
         col1, col2 = st.columns(2)
         
         with col1:
-            # Duplicate amounts
-            fig_dup_amount = px.histogram(
-                duplicate_txns,
-                x='amount',
-                title="Duplicate Transaction Amounts",
-                nbins=15
+            # Duplicate transaction status
+            dup_status_counts = duplicate_txns['status'].value_counts()
+            fig_dup_status = px.pie(
+                values=dup_status_counts.values,
+                names=dup_status_counts.index,
+                title="Duplicate Transaction Status"
             )
-            st.plotly_chart(fig_dup_amount, use_container_width=True)
+            st.plotly_chart(fig_dup_status, use_container_width=True, key="duplicate_status_chart")
         
         with col2:
             # Duplicates by merchant
@@ -797,7 +799,7 @@ elif page == "📈 Analytics & Trends":
                 orientation='h',
                 title="Top Merchants with Duplicates"
             )
-            st.plotly_chart(fig_dup_merchant, use_container_width=True)
+            st.plotly_chart(fig_dup_merchant, use_container_width=True, key="duplicate_merchant_chart")
         
         st.subheader("🔍 Duplicate Transactions Details")
         st.dataframe(duplicate_txns, use_container_width=True)
@@ -828,8 +830,8 @@ elif page == "📈 Analytics & Trends":
             st.metric("Auto-Resolution Rate", "Run Task 2")
     
     with col3:
-        avg_dispute_amount = disputes['amount'].mean() if not disputes.empty else 0
-        st.metric("Average Dispute Amount", f"₹{avg_dispute_amount:.0f}")
+        total_customers = len(disputes['customer_id'].unique()) if not disputes.empty else 0
+        st.metric("Unique Customers", total_customers)
 
 # ---------- DATASET HISTORY PAGE ----------
 elif page == "🗂️ Dataset History":
